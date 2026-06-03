@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  employee
+  manager
+  admin
+}
+
+enum ReportStatus {
+  pending
+  processing
+  accepted
+  needs_revision
+  awaiting_check
+}
+
+model User {
+  id               Int      @id @default(autoincrement())
+  telegramChatId   String   @unique @map("telegram_chat_id")
+  fullName         String?  @map("full_name")
+  role             Role     @default(employee)
+  isActive         Boolean  @default(false) @map("is_active")
+  managerId        Int?     @map("manager_id")
+  manager          User?    @relation("ManagerEmployees", fields: [managerId], references: [id])
+  employees        User[]   @relation("ManagerEmployees")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  reports          Report[]
+  createdTemplates ReportTemplate[]
+  eventLogs        EventLog[]
+
+  @@map("users")
+}
+
+model Report {
+  id          Int          @id @default(autoincrement())
+  userId      Int          @map("user_id")
+  user        User         @relation(fields: [userId], references: [id])
+  submittedAt DateTime     @default(now()) @map("submitted_at")
+  filePath    String?      @map("file_path")
+  rawText     String?      @map("raw_text")
+  status      ReportStatus @default(pending)
+
+  checkResult CheckResult?
+
+  @@map("reports")
+}
+
+model CheckResult {
+  id        Int      @id @default(autoincrement())
+  reportId  Int      @unique @map("report_id")
+  report    Report   @relation(fields: [reportId], references: [id])
+  isValid   Boolean  @map("is_valid")
+  issues    String?
+  checkedAt DateTime @default(now()) @map("checked_at")
+
+  @@map("check_results")
+}
+
+model ReportTemplate {
+  id        Int      @id @default(autoincrement())
+  content   String
+  createdBy Int      @map("created_by")
+  creator   User     @relation(fields: [createdBy], references: [id])
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("report_templates")
+}
+
+model EventLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?     @map("user_id")
+  user        User?    @relation(fields: [userId], references: [id])
+  eventType   String   @map("event_type")
+  description String?
+  occurredAt  DateTime @default(now()) @map("occurred_at")
+
+  @@map("event_log")
+}
